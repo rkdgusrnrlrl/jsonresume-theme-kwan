@@ -5,6 +5,15 @@ var _ = require('underscore');
 var _s = require('underscore.string');
 var moment = require('moment');
 
+const SKILLS_LEVELS = [ 'Beginner', 'Intermediate', 'Advanced', 'Master' ];
+
+const date_format = 'YYYY. MM. DD';
+const date_year_month_format = 'YYYY. MM';
+
+function isDateString(dateStr) {
+    return moment(dateStr).isValid();
+}
+
 // Utity Methods ( need be moved to a separate file)
 
 function hasEmail(resume) {
@@ -81,6 +90,63 @@ function getUrlFromUsername( site, username ) {
     }
  }
 
+const convertMap = {
+    "YYYY-MM-DD" : date_format,
+    "YYYY-MM" : date_year_month_format
+};
+
+function convertDateStr(dateVal) {
+    if (dateVal) {
+        for (let dateFormatKey in convertMap) {
+            if (moment(dateVal, dateFormatKey, true).isValid()) {
+                return moment(dateVal).format(convertMap[dateFormatKey]);
+            }
+        }
+    }
+}
+
+
+
+function convertSkill(skill_info) {
+    if (skill_info.level) {
+        let some = {
+            skill_class: skill_info.level.toLowerCase(),
+            level: _s.capitalize(skill_info.level.trim()),
+            display_progress_bar: _.contains(SKILLS_LEVELS, skill_info.level)
+        };
+
+        return _.extend(skill_info, some);
+    }
+}
+
+const SORT_MAP = {
+    master: 1,
+    advanced: 2,
+    intermediate: 3,
+    beginner: 4
+};
+
+function skillsSortFunc (skill) {
+    let level = skill.level && skill.level.toLowerCase();
+    return SORT_MAP[ level ];
+}
+
+function convertDatePorp(volunteer_info) {
+    let dataObj = _.chain(['startDate', 'endDate'])
+        .map((date) => [date, convertDateStr(volunteer_info[date])])
+        .object()
+        .value();
+
+    return _.extend(volunteer_info, dataObj);
+}
+
+function covertSummary(resume) {
+    const summaryArr = resume.basics.summary.split("\n");
+    return _.reduce(summaryArr, (fullSummay, summary) => {
+        return `${fullSummay}<p>${summary}</p>`;
+    }, "");
+}
+
 function render(resume) {
     var css = fs.readFileSync(__dirname + '/assets/css/theme.css', 'utf-8'),
         template = fs.readFileSync(__dirname + '/resume.template', 'utf-8'),
@@ -89,9 +155,9 @@ function render(resume) {
                         "soundcloud", "pinterest", "vimeo", "behance",
                         "codepen", "foursquare", "reddit", "spotify",
                         "dribble", "dribbble", "facebook", "angellist",
-                        "bitbucket", "skype"],
-        date_format = 'MMM YYYY';
+                        "bitbucket", "skype"];
 
+    // Basic
     if (!resume.basics.picture && hasEmail(resume)) {
         resume.basics.picture = gravatar.url(resume.basics.email.replace('(at)', '@'), {
             s: '100',
@@ -100,87 +166,43 @@ function render(resume) {
         });
     }
 
+    resume.basics.summary = covertSummary(resume);
+
     if ( resume.languages ) {
         resume.basics.languages = _.pluck( resume.languages, 'language' ).join( ', ' );
     }
-    _.each( resume.work, function( work_info ) {
-        var did_leave_company,
-            start_date = work_info.startDate && new Date( work_info.startDate ),
-            end_date = work_info.endDate && new Date( work_info.endDate );
 
-        if ( start_date ) {
-            work_info.startDate = moment( start_date ).format( date_format );
-        }
+    // Work
+    resume.work = _.map(resume.work, convertDatePorp);
 
-        if ( end_date ) {
-            work_info.endDate = moment( end_date ).format( date_format );
-        }
+    // Skill
+    resume.skills = _.chain(resume.skills)
+        .map(convertSkill)
+        .filter((skillInfo) => skillInfo != null)
+        .sortBy(skillsSortFunc)
+        .value();
 
-        did_leave_company = !! end_date;
+     // Education
+    resume.education = _.map( resume.education, convertDatePorp);
 
-        if ( start_date ) {
-            end_date = end_date || new Date();
-            work_info.duration = humanizeDuration(
-                moment.duration( end_date.getTime() - start_date.getTime() ),
-                did_leave_company )
-        }
-    });
-
-    _.each( resume.skills, function( skill_info ) {
-        var levels = [ 'Beginner', 'Intermediate', 'Advanced', 'Master' ];
-
-        if ( skill_info.level ) {
-            skill_info.skill_class = skill_info.level.toLowerCase();
-            skill_info.level = _s.capitalize( skill_info.level.trim() );
-            skill_info.display_progress_bar = _.contains( levels,
-                                                          skill_info.level );
-        }
-    });
-
-    resume.skills = _.sortBy( resume.skills, function( skill ) {
-        var level = skill.level && skill.level.toLowerCase(),
-            sort_map = {
-                master: 1,
-                advanced: 2,
-                intermediate: 3,
-                beginner: 4
-            };
-
-        return sort_map[ level ];
-    });
-
-    _.each( resume.education, function( education_info ) {
-        _.each( [ 'startDate', 'endDate' ], function ( date ) {
-            var date_obj = new Date( education_info[ date ] );
-
-            if ( education_info[ date ] ) {
-                education_info[ date ] = moment( date_obj ).format( date_format );
-            }
-        });
-    });
-
+    // Awart
     _.each( resume.awards, function( award_info ) {
         if ( award_info.date ) {
             award_info.date = moment( new Date( award_info.date ) ).format( date_format )
         }
     });
 
+    // Publish
     _.each( resume.publications, function( publication_info ) {
         if ( publication_info.releaseDate ) {
             publication_info.releaseDate = moment( new Date( publication_info.releaseDate ) ).format( 'MMM DD, YYYY' )
         }
     });
 
-    _.each( resume.volunteer, function( volunteer_info ) {
-        _.each( [ 'startDate', 'endDate' ], function ( date ) {
-            var date_obj = new Date( volunteer_info[ date ] );
+    // Volunteer
+    resume.volunteer = _.map( resume.volunteer, convertDatePorp);
 
-            if ( volunteer_info[ date ] ) {
-                volunteer_info[ date ] = moment( date_obj ).format( date_format );
-            }
-        });
-    });
-
+    // SocialSite
     _.each( social_sites, function( site ) {
         var username,
             social_account = getNetwork( profiles, site );
