@@ -1,4 +1,16 @@
-# Kwan Theme 
+# Kwan Theme (not original, change Date format)
+this is just change few thing from [Kwan themae(https://github.com/icoloma/jsonresume-theme-kwan)
+
+## difference 
+- data format is `YYYY-MM-DD`
+- sumary check CF and wrapping `<p>`
+
+## how use this 
+- write `resume.json` 
+- `npm start` - not perfect
+
+
+## Original README
 
 This is a fork from [Elegant Theme](https://github.com/mudassir0909/jsonresume-theme-elegant) by Mudassir Ali, modified to improve print styles and in general simplify things. 
 
@@ -19,4 +31,3 @@ $ ./serve.js [optional_resume_filename] // Do this in a separate terminal to run
 ```
 
 Visit [http://localhost:8888](http://localhost:8888) to see the theme in action.
-

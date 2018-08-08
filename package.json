@@ -8,8 +8,7 @@
     "url": "https://github.com/icoloma/jsonresume-theme-kwan.git"
   },
   "scripts": {
-    "prestart": "grunt watch",
-    "start": "server.js resume.json"
+    "start": "node serve.js resume.json"
   },
   "keywords": [
     "jsonresume",
